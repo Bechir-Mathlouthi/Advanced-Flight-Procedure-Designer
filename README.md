@@ -4,6 +4,20 @@ A sophisticated web application for designing and validating flight procedures w
 
 Developed by [Bechir Mathlouthi](https://github.com/Bechir-Mathlouthi)
 
+## Screenshots
+
+### Main Procedure Interface
+![Main Procedure](screenshots/proc.png)
+*Main interface showing procedure management and controls*
+
+### Procedure Design Interface
+![Procedure Design](screenshots/procedure_design.png)
+*Interactive map interface for designing flight procedures with real-time visualization*
+
+### Terrain Analysis
+![Terrain Analysis](screenshots/terrain_analysis.png)
+*Detailed terrain analysis with elevation profile and clearance violations*
+
 ## Features
 
 - **Interactive Procedure Design**
