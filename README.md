@@ -7,14 +7,12 @@ Developed by [Bechir Mathlouthi](https://github.com/Bechir-Mathlouthi)
 ## Screenshots
 
 ### Main Procedure Interface
-![Main Procedure](screenshots/proc.png)
+![Procedure Design](screenshots/procedure_design.png)
+
 *Main interface showing procedure management and controls*
 
-### Procedure Design Interface
-![Procedure Design](screenshots/procedure_design.png)
-*Interactive map interface for designing flight procedures with real-time visualization*
-
-### Terrain Analysis
+### Procedure Design Interface and Terrain Analysis
+![Main Procedure](screenshots/proc.png)
 ![Terrain Analysis](screenshots/terrain_analysis.png)
 *Detailed terrain analysis with elevation profile and clearance violations*
 
