@@ -1,0 +1,398 @@
+{% extends "base.html" %}
+
+{% block title %}
+    {% if procedure %}Edit{% else %}New{% endif %} Flight Procedure
+{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-md-4">
+        <!-- Procedure Details Form -->
+        <div class="card mb-4">
+            <div class="card-header">
+                <h5 class="card-title mb-0">Procedure Details</h5>
+            </div>
+            <div class="card-body">
+                <form id="procedureForm" method="POST" action="{{ url_for('core.new_procedure' if not procedure else 'core.edit_procedure', id=procedure.id if procedure else None) }}">
+                    <div class="mb-3">
+                        <label for="name" class="form-label">Procedure Name</label>
+                        <input type="text" class="form-control" id="name" name="name" 
+                               value="{{ procedure.name if procedure else '' }}" required>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="airport_icao" class="form-label">Airport ICAO</label>
+                        <input type="text" class="form-control" id="airport_icao" name="airport_icao" 
+                               value="{{ procedure.airport_icao if procedure else '' }}" 
+                               pattern="[A-Z]{4}" maxlength="4" required>
+                        <div class="form-text">4-letter ICAO airport code</div>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="procedure_type" class="form-label">Procedure Type</label>
+                        <select class="form-select" id="procedure_type" name="procedure_type" required>
+                            {% for type in procedure_types %}
+                            <option value="{{ type.name }}" 
+                                    {% if procedure and procedure.procedure_type == type %}selected{% endif %}>
+                                {{ type.value }}
+                            </option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="navigation_type" class="form-label">Navigation Type</label>
+                        <select class="form-select" id="navigation_type" name="navigation_type" required>
+                            {% for type in navigation_types %}
+                            <option value="{{ type.name }}"
+                                    {% if procedure and procedure.navigation_type == type %}selected{% endif %}>
+                                {{ type.value }}
+                            </option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="minimum_altitude" class="form-label">Min Altitude (ft)</label>
+                                <input type="number" class="form-control" id="minimum_altitude" 
+                                       name="minimum_altitude" min="0" step="100"
+                                       value="{{ procedure.minimum_altitude if procedure else '' }}">
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="maximum_altitude" class="form-label">Max Altitude (ft)</label>
+                                <input type="number" class="form-control" id="maximum_altitude" 
+                                       name="maximum_altitude" min="0" step="100"
+                                       value="{{ procedure.maximum_altitude if procedure else '' }}">
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <input type="hidden" id="waypoints_json" name="waypoints_json" value="">
+                    
+                    <div class="d-grid gap-2">
+                        <button type="submit" class="btn btn-primary">Save Procedure</button>
+                        <a href="{{ url_for('core.index') }}" class="btn btn-secondary">Cancel</a>
+                    </div>
+                </form>
+            </div>
+        </div>
+        
+        <!-- Waypoints List -->
+        <div class="card">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <h5 class="card-title mb-0">Waypoints</h5>
+                <button class="btn btn-sm btn-primary" onclick="addWaypoint()">
+                    <i class="bi bi-plus"></i> Add
+                </button>
+            </div>
+            <div class="card-body">
+                <div id="waypointsList" class="waypoint-list">
+                    {% if procedure and procedure.waypoints %}
+                        {% for waypoint in procedure.waypoints %}
+                        <div class="waypoint-item" data-sequence="{{ waypoint.sequence }}">
+                            <div class="d-flex justify-content-between">
+                                <strong>{{ waypoint.name }}</strong>
+                                <div>
+                                    <button class="btn btn-sm btn-outline-danger" 
+                                            onclick="removeWaypoint({{ waypoint.sequence }})">
+                                        <i class="bi bi-trash"></i>
+                                    </button>
+                                </div>
+                            </div>
+                            <div>
+                                Lat: {{ "%.6f"|format(waypoint.latitude) }}<br>
+                                Lon: {{ "%.6f"|format(waypoint.longitude) }}
+                            </div>
+                            {% if waypoint.altitude_constraint %}
+                            <div>Alt: {{ waypoint.altitude_constraint }} ft</div>
+                            {% endif %}
+                            {% if waypoint.speed_constraint %}
+                            <div>Speed: {{ waypoint.speed_constraint }} kts</div>
+                            {% endif %}
+                        </div>
+                        {% endfor %}
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-8">
+        <!-- Map Container -->
+        <div class="card">
+            <div class="card-header">
+                <h5 class="card-title mb-0">Route Design</h5>
+            </div>
+            <div class="card-body p-0">
+                <div id="map" class="map-container"></div>
+            </div>
+            <div class="card-footer">
+                <div class="btn-group">
+                    <button class="btn btn-sm btn-outline-primary" onclick="toggleDrawing()">
+                        <i class="bi bi-pencil"></i> Draw Route
+                    </button>
+                    <button class="btn btn-sm btn-outline-secondary" onclick="clearRoute()">
+                        <i class="bi bi-trash"></i> Clear
+                    </button>
+                </div>
+                <small class="text-muted ms-2">Click on the map to add waypoints</small>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+// Initialize OpenLayers map
+const map = new ol.Map({
+    target: 'map',
+    layers: [
+        new ol.layer.Tile({
+            source: new ol.source.OSM()
+        })
+    ],
+    view: new ol.View({
+        center: ol.proj.fromLonLat([0, 0]),
+        zoom: 2
+    })
+});
+
+// Vector source and layer for waypoints and route
+const vectorSource = new ol.source.Vector();
+const vectorLayer = new ol.layer.Vector({
+    source: vectorSource,
+    style: function(feature) {
+        if (feature.getGeometry().getType() === 'Point') {
+            return new ol.style.Style({
+                image: new ol.style.Circle({
+                    radius: 6,
+                    fill: new ol.style.Fill({color: '#007bff'}),
+                    stroke: new ol.style.Stroke({color: '#ffffff', width: 2})
+                }),
+                text: new ol.style.Text({
+                    text: feature.get('name'),
+                    offsetY: -15,
+                    fill: new ol.style.Fill({color: '#007bff'}),
+                    stroke: new ol.style.Stroke({color: '#ffffff', width: 2})
+                })
+            });
+        } else {
+            return new ol.style.Style({
+                stroke: new ol.style.Stroke({
+                    color: '#007bff',
+                    width: 2,
+                    lineDash: [4, 8]
+                })
+            });
+        }
+    }
+});
+map.addLayer(vectorLayer);
+
+// Draw interaction
+let draw;
+function toggleDrawing() {
+    if (draw) {
+        map.removeInteraction(draw);
+        draw = null;
+    } else {
+        draw = new ol.interaction.Draw({
+            source: vectorSource,
+            type: 'Point'
+        });
+        draw.on('drawend', function(event) {
+            const coords = ol.proj.transform(
+                event.feature.getGeometry().getCoordinates(),
+                'EPSG:3857',
+                'EPSG:4326'
+            );
+            addWaypointFromMap(coords[1], coords[0]);
+        });
+        map.addInteraction(draw);
+    }
+}
+
+// Waypoints management
+let waypoints = [];
+{% if procedure and procedure.waypoints %}
+waypoints = [
+    {% for wp in procedure.waypoints %}
+    {
+        sequence: {{ wp.sequence }},
+        name: "{{ wp.name }}",
+        latitude: {{ wp.latitude }},
+        longitude: {{ wp.longitude }},
+        altitude_constraint: {{ wp.altitude_constraint or 'null' }},
+        speed_constraint: {{ wp.speed_constraint or 'null' }}
+    },
+    {% endfor %}
+];
+updateMap();
+{% endif %}
+
+function updateWaypointsInput() {
+    document.getElementById('waypoints_json').value = JSON.stringify(waypoints);
+}
+
+function addWaypointFromMap(lat, lon) {
+    const sequence = waypoints.length + 1;
+    const name = `WP${sequence}`;
+    
+    const waypoint = {
+        sequence: sequence,
+        name: name,
+        latitude: lat,
+        longitude: lon,
+        altitude_constraint: null,
+        speed_constraint: null
+    };
+    
+    waypoints.push(waypoint);
+    updateWaypointsList();
+    updateWaypointsInput();
+    updateMap();
+}
+
+function removeWaypoint(sequence) {
+    waypoints = waypoints.filter(wp => wp.sequence !== sequence);
+    // Resequence remaining waypoints
+    waypoints.forEach((wp, index) => {
+        wp.sequence = index + 1;
+    });
+    updateWaypointsList();
+    updateWaypointsInput();
+    updateMap();
+}
+
+function updateWaypointsList() {
+    const list = document.getElementById('waypointsList');
+    list.innerHTML = '';
+    
+    waypoints.forEach(wp => {
+        const item = document.createElement('div');
+        item.className = 'waypoint-item';
+        item.dataset.sequence = wp.sequence;
+        item.innerHTML = `
+            <div class="d-flex justify-content-between">
+                <strong>${wp.name}</strong>
+                <div>
+                    <button class="btn btn-sm btn-outline-danger" 
+                            onclick="removeWaypoint(${wp.sequence})">
+                        <i class="bi bi-trash"></i>
+                    </button>
+                </div>
+            </div>
+            <div>
+                Lat: ${wp.latitude.toFixed(6)}<br>
+                Lon: ${wp.longitude.toFixed(6)}
+            </div>
+            ${wp.altitude_constraint ? `<div>Alt: ${wp.altitude_constraint} ft</div>` : ''}
+            ${wp.speed_constraint ? `<div>Speed: ${wp.speed_constraint} kts</div>` : ''}
+        `;
+        list.appendChild(item);
+    });
+}
+
+function updateMap() {
+    vectorSource.clear();
+    
+    if (waypoints.length > 0) {
+        // Add waypoint features
+        waypoints.forEach(wp => {
+            const feature = new ol.Feature({
+                geometry: new ol.geom.Point(ol.proj.fromLonLat([wp.longitude, wp.latitude])),
+                name: wp.name
+            });
+            vectorSource.addFeature(feature);
+        });
+        
+        // Add route line
+        if (waypoints.length > 1) {
+            const coordinates = waypoints.map(wp => 
+                ol.proj.fromLonLat([wp.longitude, wp.latitude])
+            );
+            const lineFeature = new ol.Feature({
+                geometry: new ol.geom.LineString(coordinates)
+            });
+            vectorSource.addFeature(lineFeature);
+        }
+        
+        // Fit map to show all waypoints
+        const extent = vectorSource.getExtent();
+        map.getView().fit(extent, {
+            padding: [50, 50, 50, 50],
+            duration: 1000
+        });
+    }
+}
+
+function clearRoute() {
+    waypoints = [];
+    updateWaypointsList();
+    updateWaypointsInput();
+    updateMap();
+}
+
+// Form submission
+document.getElementById('procedureForm').onsubmit = function(e) {
+    e.preventDefault();
+    
+    // Validate waypoints
+    if (waypoints.length < 2) {
+        alert('A procedure must have at least 2 waypoints');
+        return false;
+    }
+    
+    // Update waypoints JSON before submission
+    updateWaypointsInput();
+    
+    // Submit the form
+    this.submit();
+};
+
+// Add click interaction for waypoint info
+const element = document.createElement('div');
+element.className = 'ol-popup';
+const popup = new ol.Overlay({
+    element: element,
+    positioning: 'bottom-center',
+    stopEvent: false,
+    offset: [0, -10]
+});
+map.addOverlay(popup);
+
+map.on('click', function(evt) {
+    const feature = map.forEachFeatureAtPixel(evt.pixel, function(feature) {
+        return feature;
+    });
+    
+    if (feature && feature.getGeometry().getType() === 'Point') {
+        const coords = feature.getGeometry().getCoordinates();
+        const lonlat = ol.proj.transform(coords, 'EPSG:3857', 'EPSG:4326');
+        const wp = waypoints.find(w => 
+            Math.abs(w.longitude - lonlat[0]) < 0.000001 && 
+            Math.abs(w.latitude - lonlat[1]) < 0.000001
+        );
+        
+        if (wp) {
+            element.innerHTML = `
+                <strong>${wp.name}</strong><br>
+                Sequence: ${wp.sequence}<br>
+                Lat: ${wp.latitude.toFixed(6)}<br>
+                Lon: ${wp.longitude.toFixed(6)}
+                ${wp.altitude_constraint ? `<br>Alt: ${wp.altitude_constraint} ft` : ''}
+                ${wp.speed_constraint ? `<br>Speed: ${wp.speed_constraint} kts` : ''}
+            `;
+            popup.setPosition(coords);
+        }
+    } else {
+        popup.setPosition(undefined);
+    }
+});
+</script>
+{% endblock %} 

@@ -1,0 +1,54 @@
+{
+    "language": "python",
+    "formatter": {
+      "line_length": 100,
+      "indent_size": 4
+    },
+    "linter": {
+      "enabled": true,
+      "rules": {
+        "E501": false,
+        "W503": true,
+        "F401": true
+      }
+    },
+    "frameworks": {
+      "flask": {
+        "default_routes": true,
+        "templates_directory": "templates",
+        "static_directory": "static"
+      },
+      "streamlit": {
+        "theme": "dark",
+        "max_upload_size": "200MB"
+      }
+    },
+    "database": {
+      "type": "sqlite",
+      "filename": "flight_procedures.db"
+    },
+    "integration": {
+      "geo": {
+        "geojson_support": true,
+        "max_file_size": "50MB"
+      },
+      "map": {
+        "api": "Mapbox",
+        "default_zoom": 5,
+        "default_center": [0, 0]
+      },
+      "3d_rendering": {
+        "engine": "Cesium",
+        "max_polygons": 100000
+      }
+    },
+    "testing": {
+      "framework": "pytest",
+      "coverage": 90
+    },
+    "security": {
+      "csrf_protection": true,
+      "encryption": "AES256"
+    }
+  }
+  
